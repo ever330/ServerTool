@@ -19,6 +19,9 @@
 #include <queue>
 #include <map>
 #include <sstream>
+#include <ctime>
+#include <Windows.h>
+#include <time.h>
 
 // Socket
 #include <WinSock2.h>
@@ -26,18 +29,22 @@
 #include <ws2tcpip.h>
 
 // boost
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <boost/asio.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
+//#include <boost/asio.hpp>
+//#include <boost/archive/text_oarchive.hpp>
+//#include <boost/archive/text_iarchive.hpp>
+//#include <boost/serialization/string.hpp>
+//#include <boost/serialization/vector.hpp>
 
 // 멀티스레드 관련
 #include <thread>
 #include <mutex>
 
+// DB
+#include <sqlext.h>
+#include <sqltypes.h>
+#include <sql.h>
 
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "odbc32.lib")
 
 #endif //PCH_H

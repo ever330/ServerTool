@@ -1,5 +1,7 @@
 #pragma once
 
+BLANCNET_BEGIN
+
 class WinSocManager
 {
 public:
@@ -16,3 +18,5 @@ public:
 private:
 	WSAData m_wsd = { 0, };
 };
+
+BLANCNET_END

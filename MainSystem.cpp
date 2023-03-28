@@ -1,17 +1,23 @@
 #include "pch.h"
 #include "MainSystem.h"
 
+#include "LobbyManager.h"
+
+
 BLANCNET_BEGIN
-
-MainSystem::MainSystem()
+	void MainSystem::Init(std::string ip /*= "0.0.0.0"*/, int port /*= 0*/)
 {
-
-}
-
-void MainSystem::Init(std::string ip /*= "0.0.0.0"*/, int port /*= 0*/)
-{
+	m_socCount = 0;
 	m_winManager = std::make_unique<WinSocManager>();
 	m_winManager->Init();
+	DBManager::GetInstance().Init();
+
+	m_pacAnalyzer = std::make_unique<PacketAnalyzer>();
+
+	/*DBManager::GetInstance().LoginCheck("UnityTest", "1234");
+	DBManager::GetInstance().IdDuplicateCheck("UnityTest");
+	DBManager::GetInstance().SignUp("CppTest", "1234");*/
+
 	if (port != 0)
 	{
 		//m_listenSocket = std::make_unique<TcpSocket>();
@@ -19,6 +25,14 @@ void MainSystem::Init(std::string ip /*= "0.0.0.0"*/, int port /*= 0*/)
 		m_listenIp = ip;
 		m_listenSocket->SetNetId(0);
 		m_socketList.push_back(m_listenSocket);
+		m_systemMessage.push("리슨소켓 생성");
+		/*m_socCount++;
+
+		for (int i = 0; i < WSA_MAXIMUM_WAIT_EVENTS - 1; i++)
+		{
+			std::shared_ptr<TcpSocket> newSoc = std::make_shared<TcpSocket>();
+			m_socketList.push_back(newSoc);
+		}*/
 	}
 	else
 	{
@@ -40,6 +54,8 @@ void MainSystem::Close()
 		m_socketList.clear();
 	}
 
+	m_sendThread.join();
+
 	m_isRunning = false;
 	m_winManager->CleanUp();
 }
@@ -58,26 +74,29 @@ bool MainSystem::Run()
 
 	m_isRunning = true;
 
-	//while (m_isRunning)
-	//{
-	//	Update();
-	//}
+	if (!m_isSThreadRunning)
+	{
+		m_isSThreadRunning = true;
+		m_sendThread = std::thread([] {MainSystem::GetInstance().SendUpdate(); });
+	}
+
+	while (m_isRunning)
+	{
+		EventUpdate();
+	}
+
 
 	return true;
 }
 
-bool MainSystem::Send(int netId, PACKET_BASE packet)
+bool MainSystem::Send(int netId, void* packet,int nLen)
 {
 	auto soc = m_socketList[netId];
 
 	if (nullptr != soc)
 	{
-		std::ostringstream oss;
-		boost::archive::text_oarchive oa(oss);
-		oa << packet;
-		std::string str = oss.str();
-		char* cstr = (char*)str.c_str();
-		soc->PostPacket(cstr, strlen(cstr));
+		soc->PostPacket((char*)packet, nLen);
+		m_systemMessage.push(std::to_string(netId) + "번 클라이언트에 패킷 전송.");
 
 		return true;
 	}
@@ -91,12 +110,7 @@ bool MainSystem::Broadcast(PACKET_BASE packet)
 {
 	for (auto soc : m_socketList)
 	{
-		std::ostringstream oss;
-		boost::archive::text_oarchive oa(oss);
-		oa << packet;
-		std::string str = oss.str();
-		char* cstr = (char*)str.c_str();
-		soc->PostPacket(cstr, strlen(cstr));
+
 	}
 
 	return true;
@@ -106,19 +120,19 @@ bool MainSystem::Listen()
 {
 	if (nullptr == m_listenSocket)
 	{
-		m_systemMessage.push("리슨 소켓이 생성되지 않았습니다. Init 필요. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("리슨 소켓이 생성되지 않았습니다. Init 필요. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
 	if (false == m_listenSocket->Open(IPPROTO_TCP))
 	{
-		m_systemMessage.push("리슨 소켓을 열지 못했습니다. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("리슨 소켓을 열지 못했습니다. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
 	if (false == m_listenSocket->EventSelect(FD_ACCEPT | FD_CLOSE))
 	{
-		m_systemMessage.push("리슨 소켓에 이벤트 연결을 실패했습니다. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("리슨 소켓에 이벤트 연결을 실패했습니다. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
@@ -129,17 +143,18 @@ bool MainSystem::Listen()
 
 	if (false == m_listenSocket->Bind(listenAddr))
 	{
-		m_systemMessage.push("리슨 소켓 바인드가 실패했습니다. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("리슨 소켓 바인드가 실패했습니다. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
 	if (false == m_listenSocket->Listen())
 	{
-		m_systemMessage.push("리슨 실패. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("리슨 실패. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
-	m_eventTable[m_socketList.size()] = m_listenSocket->GetEventHandle();
+	m_eventTable[m_socketList.size() - 1] = m_listenSocket->GetEventHandle();
+	m_systemMessage.push("리슨 시작");
 
 	return true;
 }
@@ -148,19 +163,19 @@ bool MainSystem::Connect()
 {
 	if (nullptr == m_connectSocket)
 	{
-		m_systemMessage.push("커넥트 소켓이 생성되지 않았습니다. Init 필요. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("커넥트 소켓이 생성되지 않았습니다. Init 필요. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
 	if (false == m_connectSocket->Open(IPPROTO_TCP))
 	{
-		m_systemMessage.push("커넥트 소켓을 열지 못했습니다. Init 필요. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("커넥트 소켓을 열지 못했습니다. Init 필요. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
 	if (false == m_connectSocket->EventSelect(FD_CONNECT | FD_READ | FD_WRITE | FD_CLOSE))
 	{
-		m_systemMessage.push("커넥트 소켓에 이벤트 연결을 실패했습니다. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("커넥트 소켓에 이벤트 연결을 실패했습니다. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
@@ -171,7 +186,7 @@ bool MainSystem::Connect()
 
 	if (false == m_connectSocket->Connect(connectAddr))
 	{
-		m_systemMessage.push("커넥트 실패. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("커넥트 실패. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return false;
 	}
 
@@ -184,21 +199,24 @@ void MainSystem::EventUpdate()
 
 	if ((socIndex = WSAWaitForMultipleEvents(m_socketList.size(), m_eventTable, FALSE, 100, FALSE)) == WSA_WAIT_FAILED)
 	{
-		m_systemMessage.push("WSAWaitForMultipleEvents() failed. 에러코드 :" + WSAGetLastError());
+		m_systemMessage.push("WSAWaitForMultipleEvents() failed. 에러코드 :" + std::to_string(WSAGetLastError()));
 		return;
 	}
+
+	if (socIndex > m_socketList.size())
+		return;
 
 	std::shared_ptr<TcpSocket> nowSoc = m_socketList.at(socIndex);
 
 	if (nullptr != nowSoc)
 	{
-		m_systemMessage.push(nowSoc->GetNetId()+ "번 소켓 이벤트 실행.");
+		m_systemMessage.push(std::to_string(nowSoc->GetNetId()) + "번 소켓 이벤트 실행.");
 
 		WSANETWORKEVENTS NetworkEvents;
 
 		if (SOCKET_ERROR == WSAEnumNetworkEvents(nowSoc->GetSocHandle(), nowSoc->GetEventHandle(), &NetworkEvents))
 		{
-			m_systemMessage.push("WSAEnumNetworkEvents() failed. 에러코드 :" + WSAGetLastError());
+			m_systemMessage.push("WSAEnumNetworkEvents() failed. 에러코드 :" + std::to_string(WSAGetLastError()));
 			return;
 		}
 
@@ -206,7 +224,7 @@ void MainSystem::EventUpdate()
 		{
 			if (0 != NetworkEvents.iErrorCode[FD_ACCEPT_BIT])
 			{
-				m_systemMessage.push("FD_ACCEPT failed. 에러코드 :" + NetworkEvents.iErrorCode[FD_ACCEPT_BIT]);
+				m_systemMessage.push("FD_ACCEPT failed.");
 				return;
 			}
 			OnNetAccept(nowSoc);
@@ -214,9 +232,9 @@ void MainSystem::EventUpdate()
 
 		if (NetworkEvents.lNetworkEvents == FD_CLOSE)
 		{
-			if (0 !=NetworkEvents.iErrorCode[FD_CLOSE_BIT])
+			if (0 != NetworkEvents.iErrorCode[FD_CLOSE_BIT])
 			{
-				m_systemMessage.push("FD_CLOSE failed. 에러코드 :" + NetworkEvents.iErrorCode[FD_ACCEPT_BIT]);
+				m_systemMessage.push("FD_CLOSE failed.");
 				return;
 			}
 			OnNetClose(nowSoc, nowSoc->GetNetId());
@@ -227,7 +245,7 @@ void MainSystem::EventUpdate()
 		{
 			if (0 != NetworkEvents.iErrorCode[FD_READ_BIT])
 			{
-				m_systemMessage.push("FD_READ failed. 에러코드 :" + NetworkEvents.iErrorCode[FD_READ_BIT]);
+				m_systemMessage.push("FD_READ failed.");
 				return;
 			}
 			OnNetRecv(nowSoc);
@@ -237,7 +255,7 @@ void MainSystem::EventUpdate()
 		{
 			if (0 != NetworkEvents.iErrorCode[FD_WRITE_BIT])
 			{
-				m_systemMessage.push("FD_WRITE failed. 에러코드 :" + NetworkEvents.iErrorCode[FD_WRITE_BIT]);
+				m_systemMessage.push("FD_WRITE failed.");
 				return;
 			}
 			OnNetSend(nowSoc);
@@ -255,12 +273,12 @@ void MainSystem::GetClientIPPort(SOCKET clientSoc, char* ipPort)
 
 	if (getpeername(clientSoc, (sockaddr*)&endpoint, &epLength) < 0)
 	{
-		m_systemMessage.push("getpeername 실패. 에러코드 : " + WSAGetLastError());
+		m_systemMessage.push("getpeername 실패. 에러코드 : " + std::to_string(WSAGetLastError()));
 		return;
 	}
 	if (epLength > sizeof(endpoint))
 	{
-		m_systemMessage.push("getpeername buffer overrun. 에러코드 : " + WSAGetLastError());
+		m_systemMessage.push("getpeername buffer overrun. 에러코드 : " + std::to_string(WSAGetLastError()));
 		return;
 	}
 
@@ -279,7 +297,7 @@ void MainSystem::GetClientIPPort(SOCKET clientSoc, char* ipPort)
 std::string MainSystem::GetSystemMessage()
 {
 	if (m_systemMessage.empty())
-		return "시스템 큐가 비었습니다.";
+		return " ";
 
 	std::string message = m_systemMessage.front();
 	m_systemMessage.pop();
@@ -295,29 +313,35 @@ void MainSystem::OnNetAccept(std::shared_ptr<TcpSocket> soc)
 		return;
 	}
 
-	int newSocId = 0;
-	if (0 == m_emptySocket.size())
-	{
-		newSocId = m_socketList.size();
-	}
-	else
-	{
-		newSocId = m_emptySocket.front();
-		m_emptySocket.pop();
-	}
+	std::lock_guard<std::mutex> lock_guard(socListMutex);
 
 	std::shared_ptr<TcpSocket> newSocket = std::make_shared<TcpSocket>();
 	newSocket->SetSocHandle(accept(soc->GetSocHandle(), NULL, NULL));
 	if (newSocket->GetSocHandle() == INVALID_SOCKET)
 	{
-		m_systemMessage.push("accept() filad. 에러코드 : " + WSAGetLastError());
+		m_systemMessage.push("accept() filad. 에러코드 : " + std::to_string(WSAGetLastError()));
 		return;
 	}
 
 	char ipPort[IpPort_Len];
 	GetClientIPPort(newSocket->GetSocHandle(), ipPort);
 	m_systemMessage.push("접속한 클라이언트 : " + static_cast<std::string>(ipPort));
-	newSocket->SetNetId(newSocId);
+
+	int newSocId = 0;
+	if (m_emptySocket.empty())
+	{
+		newSocId = m_socketList.size();
+		newSocket->SetNetId(newSocId);
+		m_socketList.push_back(newSocket);
+	}
+	else
+	{
+		newSocId = m_emptySocket.front();
+		m_emptySocket.pop();
+		newSocket->SetNetId(newSocId);
+		m_socketList[newSocId] = newSocket;
+	}
+
 
 	if (false == newSocket->EventSelect(FD_READ | FD_WRITE | FD_CLOSE))
 	{
@@ -327,26 +351,49 @@ void MainSystem::OnNetAccept(std::shared_ptr<TcpSocket> soc)
 	}
 
 	m_eventTable[newSocId] = newSocket->GetEventHandle();
-	m_socketList[newSocId] = newSocket;
 
 	MSG_S2C_ACCEPT s2cPacket;
 	s2cPacket.packetId = static_cast<INT16>(COMMON_PACKET_ID::S2C_ACCEPT);
 	s2cPacket.packetSize = sizeof(MSG_S2C_ACCEPT);
 
-	if (false == Send(newSocId, s2cPacket))
+	if (false == Send(newSocId, reinterpret_cast<char*>(&s2cPacket), s2cPacket.packetSize))
 	{
-		m_systemMessage.push(newSocId + "로 패킷 전송 실패!!");
+		m_systemMessage.push(std::to_string(newSocId) + "로 패킷 전송 실패!!");
 	}
 }
 
-void MainSystem::OnNetClose(std::shared_ptr<TcpSocket> soc, int socketIndex)
+void MainSystem::OnNetClose(std::shared_ptr<TcpSocket> soc, int netId)
 {
+	std::lock_guard<std::mutex> lock_guard(socListMutex);
+	// 소켓을 닫고 다음 연결될 소켓이 사용할 수 있도록 인덱스를 보관해둔다.
+	soc->Close();
+	soc->Reset();
+	m_emptySocket.push(netId);
+	LobbyManager::GetInstance().PlayerLogOut(netId);
 
+	m_systemMessage.push(std::to_string(netId) + "번 소켓 연결 종료");
 }
 
 void MainSystem::OnNetRecv(std::shared_ptr<TcpSocket> soc)
 {
+	soc->RecvUpdate();
 
+	PACKET_BASE pacHeader;
+	while (soc->PeekPacket(reinterpret_cast<char*>(&pacHeader), sizeof(PACKET_BASE)))
+	{
+		memset(&m_packetRecvBuf, 0, 1024);
+
+		if (soc->ReadPacket(m_packetRecvBuf, pacHeader.packetSize))
+		{
+			char ipPort[IpPort_Len];
+			GetClientIPPort(soc->GetSocHandle(), ipPort);
+			//m_systemMessage.push(std::to_string(soc->GetNetId()) + "번 클라이언트의 패킷 도착");
+
+			m_systemMessage.push(m_pacAnalyzer->PacAnalyze(soc, m_packetRecvBuf, pacHeader.packetSize));
+		}
+		else
+			break;
+	}
 }
 
 void MainSystem::OnNetSend(std::shared_ptr<TcpSocket> soc)
@@ -356,12 +403,16 @@ void MainSystem::OnNetSend(std::shared_ptr<TcpSocket> soc)
 
 void MainSystem::SendUpdate()
 {
-	// Listen 소켓 제외 모든 소켓의 큐에있는 데이터 전송
-	for (int i = 1; i < m_socketList.size(); i++)
+	while (m_isSThreadRunning)
 	{
-		if (nullptr != m_socketList[i] && false == m_socketList[i]->SendUpdate())
+		// Listen 소켓 제외 모든 소켓의 큐에있는 데이터 전송
+		for (int i = 1; i < m_socketList.size(); i++)
 		{
-			m_systemMessage.push(i + "번째 Socket->SendUpdate 실패");
+			if (INVALID_SOCKET != m_socketList[i].get()->GetSocHandle() && false == m_socketList[i]->SendUpdate())
+			{
+				m_systemMessage.push((std::to_string(i)) + "번째 Socket->SendUpdate 실패");
+				OnNetClose(m_socketList[i], i);
+			}
 		}
 	}
 }

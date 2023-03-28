@@ -31,6 +31,8 @@ public:
 // 구현입니다.
 protected:
 	DECLARE_MESSAGE_MAP()
+public:
+	//afx_msg void OnTimer(UINT_PTR nIDEvent);
 };
 
 CAboutDlg::CAboutDlg() : CDialogEx(IDD_ABOUTBOX)
@@ -43,6 +45,7 @@ void CAboutDlg::DoDataExchange(CDataExchange* pDX)
 }
 
 BEGIN_MESSAGE_MAP(CAboutDlg, CDialogEx)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -60,6 +63,7 @@ void CServerToolDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_EDIT1, m_messageOut);
+	DDX_Control(pDX, IDC_LIST1, m_playerListBox);
 }
 
 BEGIN_MESSAGE_MAP(CServerToolDlg, CDialogEx)
@@ -67,7 +71,7 @@ BEGIN_MESSAGE_MAP(CServerToolDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON1, &CServerToolDlg::OnBnClickedButton1)
-	ON_BN_CLICKED(IDC_BUTTON2, &CServerToolDlg::OnBnClickedButton2)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -103,6 +107,7 @@ BOOL CServerToolDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+	m_isSystemRunning = false;
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -161,32 +166,38 @@ HCURSOR CServerToolDlg::OnQueryDragIcon()
 void CServerToolDlg::OnBnClickedButton1()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	if (nullptr != mainSys)
+	if (m_isSystemRunning)
 		return;
 
-	mainSys = std::make_unique<MainSystem>();
-	mainSys->Init("192.168.0.33", 3000);
-	NetThread = std::thread(&MainSystem::Run, mainSys.get());
-}
-
-
-void CServerToolDlg::OnBnClickedButton2()
-{
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	if (nullptr == mainSys)
-	{
-		CString cstr = L"먼저 서버를 오픈해주세요.";
-		WriteServerMessage(cstr);
-		return;
-	}
-		
-	CString cstr = (CString)mainSys->GetSystemMessage().c_str();
-	WriteServerMessage(cstr);
+	MainSystem::GetInstance().Init("192.168.0.33", 3000);
+	m_netThread = std::thread(&MainSystem::Run, &MainSystem::GetInstance());
+	SetTimer(1, 100, NULL);
 }
 
 void CServerToolDlg::WriteServerMessage(CString message)
 {
+	if (message == m_lastMessage)
+	{
+		return;
+	}
+	m_lastMessage = message;
 	m_messageOut.SetSel(-2, -1);
 	m_messageOut.ReplaceSel(message);
 	m_messageOut.ReplaceSel(L"\r\n");
+}
+
+
+void CServerToolDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
+	CString cstr = (CString)MainSystem::GetInstance().GetSystemMessage().c_str();
+	WriteServerMessage(cstr);
+	m_playerListBox.ResetContent();
+	for (auto player : LobbyManager::GetInstance().m_playerList)
+	{
+		m_playerListBox.AddString((CString)player.second->GetNickName().c_str());
+	}
+
+
+	CDialogEx::OnTimer(nIDEvent);
 }

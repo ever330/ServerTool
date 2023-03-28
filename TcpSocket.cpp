@@ -88,7 +88,7 @@ bool TcpSocket::SendUpdate()
 int TcpSocket::Send(char* outBuf, int nLen, int& error, LPWSAOVERLAPPED pOv /*= NULL*/, LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine /*= NULL*/)
 {
 	WSABUF wsaBuf;
-	wsaBuf.buf = outBuf;
+	wsaBuf.buf = (char*)outBuf;
 	wsaBuf.len = nLen;
 
 	DWORD nSent = 0, flag = 0;
@@ -138,7 +138,7 @@ bool TcpSocket::RecvUpdate()
 int TcpSocket::Recv(char* inBuf, int nLen, int& error, LPWSAOVERLAPPED pOv /*= NULL*/, LPWSAOVERLAPPED_COMPLETION_ROUTINE lpCompletionRoutine /*= NULL*/)
 {
 	WSABUF wsaBuf;
-	wsaBuf.buf = inBuf;
+	wsaBuf.buf = (char*)inBuf;
 	wsaBuf.len = nLen;
 
 	DWORD nRecv = 0, flag = 0;

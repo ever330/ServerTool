@@ -1,6 +1,8 @@
 #pragma once
 
-BLANCNET_BEGIN
+//BLANCNET_BEGIN
+
+namespace myNet{
 
 class WinSocket
 {
@@ -36,5 +38,5 @@ private:
 	WinSocket(WinSocket&&) = delete;
 	WinSocket& operator=(const WinSocket&) {}
 };
-
-BLANCNET_END
+}
+//BLANCNET_END

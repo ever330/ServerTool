@@ -4,6 +4,7 @@
 
 #pragma once
 #include "MainSystem.h"
+#include "LobbyManager.h"
 
 using namespace myNet;
 
@@ -35,14 +36,17 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnBnClickedButton1();
-	afx_msg void OnBnClickedButton2();
 
 	void WriteServerMessage(CString message);
 
 private:
-	std::unique_ptr<MainSystem> mainSys = nullptr;
-	std::thread NetThread;
+	//std::unique_ptr<MainSystem> m_mainSys;
+	std::thread m_netThread;
+	CString m_lastMessage;
+	bool m_isSystemRunning;
 
 public:
 	CEdit m_messageOut;
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	CListBox m_playerListBox;
 };

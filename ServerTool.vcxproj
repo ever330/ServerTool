@@ -183,10 +183,14 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="DBManager.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="LobbyManager.h" />
     <ClInclude Include="MainSystem.h" />
+    <ClInclude Include="PacketAnalyzer.h" />
     <ClInclude Include="PacketDefine.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PlayerInfo.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="ServerTool.h" />
     <ClInclude Include="ServerToolDlg.h" />
@@ -197,7 +201,10 @@
     <ClInclude Include="WinSocManager.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DBManager.cpp" />
+    <ClCompile Include="LobbyManager.cpp" />
     <ClCompile Include="MainSystem.cpp" />
+    <ClCompile Include="PacketAnalyzer.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -215,20 +222,11 @@
     <ResourceCompile Include="ServerTool.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
     <None Include="res\ServerTool.rc2" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\ServerTool.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="packages\boost.1.81.0\build\boost.targets" Condition="Exists('packages\boost.1.81.0\build\boost.targets')" />
-  </ImportGroup>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>이 프로젝트는 이 컴퓨터에 없는 NuGet 패키지를 참조합니다. 해당 패키지를 다운로드하려면 NuGet 패키지 복원을 사용하십시오. 자세한 내용은 http://go.microsoft.com/fwlink/?LinkID=322105를 참조하십시오. 누락된 파일은 {0}입니다.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('packages\boost.1.81.0\build\boost.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\boost.1.81.0\build\boost.targets'))" />
-  </Target>
+  <ImportGroup Label="ExtensionTargets" />
 </Project>

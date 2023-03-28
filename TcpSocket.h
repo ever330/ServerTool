@@ -2,10 +2,6 @@
 #include "WinSocket.h"
 #include "StreamQueue.h"
 
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
-
 BLANCNET_BEGIN
 
 class TcpSocket : public WinSocket
