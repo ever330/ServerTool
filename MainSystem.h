@@ -28,7 +28,7 @@ public:
 
 	bool Run();
 	bool Send(int netId, void* packet, int nLen);
-	bool Broadcast(PACKET_BASE packet);
+	bool Broadcast(void* packet, int nLen);
 
 	void EventUpdate();
 	void SendUpdate();
@@ -59,14 +59,12 @@ private:
 	std::vector<std::shared_ptr<TcpSocket>> m_socketList;
 	int m_socCount;
 	std::queue<int> m_emptySocket;
-	//std::list<std::shared_ptr<TcpSocket>> m_socketList;
-	//std::map<boost::uuids::uuid, std::shared_ptr<TcpSocket>> m_clientList;
-	
+
 	std::thread m_recvThread;
 	std::thread m_sendThread;
 	
 	bool m_isRunning = false;
-	bool m_isSThreadRunning = false;
+	bool m_isSendRunning = false;
 
 	std::queue<std::string> m_systemMessage;
 

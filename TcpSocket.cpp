@@ -75,7 +75,7 @@ bool TcpSocket::SendUpdate()
 		dataFront = m_sendBuf.data;
 	}
 
-	assert(remain >= 0);
+	//assert(remain >= 0);
 
 	nSent = Send(dataFront, remain, error);
 	if (nSent < 0) return false;
@@ -119,7 +119,7 @@ bool TcpSocket::RecvUpdate()
 
 	int remain = m_recvBuf.count - m_recvBuf.done;
 
-	assert(remain >= 0);
+	//assert(remain >= 0);
 
 	if (remain > 0)
 	{

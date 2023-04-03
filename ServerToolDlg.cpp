@@ -119,6 +119,12 @@ void CServerToolDlg::OnSysCommand(UINT nID, LPARAM lParam)
 		CAboutDlg dlgAbout;
 		dlgAbout.DoModal();
 	}
+	else if(nID == SC_CLOSE)
+	{
+		MainSystem::GetInstance().Close();
+		m_netThread.join();
+		m_sendThread.join();
+	}
 	else
 	{
 		CDialogEx::OnSysCommand(nID, lParam);
@@ -169,7 +175,9 @@ void CServerToolDlg::OnBnClickedButton1()
 	if (m_isSystemRunning)
 		return;
 
+	m_isSystemRunning = true;
 	MainSystem::GetInstance().Init("192.168.0.33", 3000);
+	//MainSystem::GetInstance().Init("221.163.91.111", 3000);
 	m_netThread = std::thread(&MainSystem::Run, &MainSystem::GetInstance());
 	SetTimer(1, 100, NULL);
 }

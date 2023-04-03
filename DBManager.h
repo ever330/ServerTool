@@ -1,4 +1,5 @@
 #pragma once
+#include "PacketAnalyzer.h"
 
 BLANCNET_BEGIN
 
@@ -18,10 +19,12 @@ public:
 	}
 
 public:
-	void Init();
-	bool LoginCheck(const char* userId, const char* userPw);
-	bool IdDuplicateCheck(const char* userId);
-	bool SignUp(const char* userId, const char* userPw);
+	bool Init();
+	bool LoginCheck(const wchar_t* userId, const wchar_t* userPw, LoginData& loginData);
+	bool IdDuplicateCheck(const wchar_t* userId);
+	bool SignUp(const wchar_t* userId, const wchar_t* userPw);
+	bool UserModelUpdate(const wchar_t* userId, LoginData& loginData);
+	void Finalize();
 
 private:
 	SQLHENV m_henv;

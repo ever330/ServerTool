@@ -42,6 +42,7 @@ public:
 private:
 	//std::unique_ptr<MainSystem> m_mainSys;
 	std::thread m_netThread;
+	std::thread m_sendThread;
 	CString m_lastMessage;
 	bool m_isSystemRunning;
 

@@ -5,6 +5,14 @@
 
 BLANCNET_BEGIN
 
+struct LoginData
+{
+	int modelGender;
+	int modelH;
+	int modelU;
+	int modelL;
+};
+
 class PacketAnalyzer
 {
 public:
@@ -19,10 +27,11 @@ private:
 	void PacLogin(int netId, void* packet, int len);
 	void PacDuplicateCheck(int netId, void* packet, int len);
 	void PacSignUp(int netId, void* packet, int len);
+	void PacCreateModel(int netId, void* packet, int len);
 	void PacCreateRoom(int netId, void* packet, int len);
 	void PacEnterRoom(int netId, void* packet, int len);
 	void PacChat(int netId, void* packet, int len);
-	void PacLeaveRoom(int netId);
+	void PacLeaveRoom(int netId, void* packet, int len);
 };
 
 BLANCNET_END

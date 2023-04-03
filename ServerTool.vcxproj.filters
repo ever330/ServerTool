@@ -22,6 +22,9 @@
     <Filter Include="Player">
       <UniqueIdentifier>{4bb5d1a7-96e6-4821-bae5-046fe63a032c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Room">
+      <UniqueIdentifier>{99383fa1-bb92-4ebf-a028-b1e9e23439a4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ServerTool.h">
@@ -72,6 +75,12 @@
     <ClInclude Include="DBManager.h">
       <Filter>Manager</Filter>
     </ClInclude>
+    <ClInclude Include="RoomInfo.h">
+      <Filter>Room</Filter>
+    </ClInclude>
+    <ClInclude Include="RoomManager.h">
+      <Filter>Manager</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ServerTool.cpp">
@@ -105,6 +114,9 @@
       <Filter>Manager</Filter>
     </ClCompile>
     <ClCompile Include="DBManager.cpp">
+      <Filter>Manager</Filter>
+    </ClCompile>
+    <ClCompile Include="RoomManager.cpp">
       <Filter>Manager</Filter>
     </ClCompile>
   </ItemGroup>

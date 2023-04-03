@@ -2,6 +2,7 @@
 #include "MainSystem.h"
 
 #include "LobbyManager.h"
+#include "RoomManager.h"
 
 
 BLANCNET_BEGIN
@@ -11,36 +12,23 @@ BLANCNET_BEGIN
 	m_winManager = std::make_unique<WinSocManager>();
 	m_winManager->Init();
 	DBManager::GetInstance().Init();
+	LobbyManager::GetInstance().Init();
 
 	m_pacAnalyzer = std::make_unique<PacketAnalyzer>();
-
-	/*DBManager::GetInstance().LoginCheck("UnityTest", "1234");
-	DBManager::GetInstance().IdDuplicateCheck("UnityTest");
-	DBManager::GetInstance().SignUp("CppTest", "1234");*/
-
+	
 	if (port != 0)
 	{
-		//m_listenSocket = std::make_unique<TcpSocket>();
 		m_listenSocket = std::make_shared<TcpSocket>();
 		m_listenIp = ip;
 		m_listenSocket->SetNetId(0);
 		m_socketList.push_back(m_listenSocket);
 		m_systemMessage.push("리슨소켓 생성");
-		/*m_socCount++;
-
-		for (int i = 0; i < WSA_MAXIMUM_WAIT_EVENTS - 1; i++)
-		{
-			std::shared_ptr<TcpSocket> newSoc = std::make_shared<TcpSocket>();
-			m_socketList.push_back(newSoc);
-		}*/
 	}
 	else
 	{
-		//m_connectSocket = std::make_unique<TcpSocket>();
 		m_connectIp = ip;
 	}
 	m_port = port;
-	//m_netId = boost::uuids::random_generator()();
 }
 
 void MainSystem::Close()
@@ -54,10 +42,11 @@ void MainSystem::Close()
 		m_socketList.clear();
 	}
 
-	m_sendThread.join();
-
 	m_isRunning = false;
+	m_isSendRunning = false;
 	m_winManager->CleanUp();
+	DBManager::GetInstance().Finalize();
+	LobbyManager::GetInstance().Finalize();
 }
 
 bool MainSystem::Run()
@@ -67,22 +56,16 @@ bool MainSystem::Run()
 		if (false == Listen()) return false;
 	}
 
-	/*if (m_isClient)
-	{
-		if (false == Connect()) return false;
-	}*/
-
 	m_isRunning = true;
+	m_isSendRunning  = true;
 
-	if (!m_isSThreadRunning)
-	{
-		m_isSThreadRunning = true;
-		m_sendThread = std::thread([] {MainSystem::GetInstance().SendUpdate(); });
-	}
+	m_sendThread = std::thread(&MainSystem::SendUpdate, &MainSystem::GetInstance());
 
 	while (m_isRunning)
 	{
 		EventUpdate();
+		LobbyManager::GetInstance().Update();
+		RoomManager::GetInstance().Update();
 	}
 
 
@@ -106,12 +89,16 @@ bool MainSystem::Send(int netId, void* packet,int nLen)
 	return false;
 }
 
-bool MainSystem::Broadcast(PACKET_BASE packet)
+bool MainSystem::Broadcast(void* packet, int nLen)
 {
 	for (auto soc : m_socketList)
 	{
-
+		if (INVALID_SOCKET != soc->GetSocHandle())
+		{
+			soc->PostPacket((char*)packet, nLen);
+		}
 	}
+	m_systemMessage.push("모든 클라이언트에 패킷 전송.");
 
 	return true;
 }
@@ -208,7 +195,7 @@ void MainSystem::EventUpdate()
 
 	std::shared_ptr<TcpSocket> nowSoc = m_socketList.at(socIndex);
 
-	if (nullptr != nowSoc)
+	if (INVALID_SOCKET != nowSoc->GetSocHandle())
 	{
 		m_systemMessage.push(std::to_string(nowSoc->GetNetId()) + "번 소켓 이벤트 실행.");
 
@@ -217,6 +204,7 @@ void MainSystem::EventUpdate()
 		if (SOCKET_ERROR == WSAEnumNetworkEvents(nowSoc->GetSocHandle(), nowSoc->GetEventHandle(), &NetworkEvents))
 		{
 			m_systemMessage.push("WSAEnumNetworkEvents() failed. 에러코드 :" + std::to_string(WSAGetLastError()));
+			OnNetClose(nowSoc, nowSoc->GetNetId());
 			return;
 		}
 
@@ -235,6 +223,7 @@ void MainSystem::EventUpdate()
 			if (0 != NetworkEvents.iErrorCode[FD_CLOSE_BIT])
 			{
 				m_systemMessage.push("FD_CLOSE failed.");
+				OnNetClose(nowSoc, nowSoc->GetNetId());
 				return;
 			}
 			OnNetClose(nowSoc, nowSoc->GetNetId());
@@ -369,7 +358,7 @@ void MainSystem::OnNetClose(std::shared_ptr<TcpSocket> soc, int netId)
 	soc->Close();
 	soc->Reset();
 	m_emptySocket.push(netId);
-	LobbyManager::GetInstance().PlayerLogOut(netId);
+	LobbyManager::GetInstance().PlayerLogout(netId);
 
 	m_systemMessage.push(std::to_string(netId) + "번 소켓 연결 종료");
 }
@@ -387,7 +376,6 @@ void MainSystem::OnNetRecv(std::shared_ptr<TcpSocket> soc)
 		{
 			char ipPort[IpPort_Len];
 			GetClientIPPort(soc->GetSocHandle(), ipPort);
-			//m_systemMessage.push(std::to_string(soc->GetNetId()) + "번 클라이언트의 패킷 도착");
 
 			m_systemMessage.push(m_pacAnalyzer->PacAnalyze(soc, m_packetRecvBuf, pacHeader.packetSize));
 		}
@@ -403,17 +391,19 @@ void MainSystem::OnNetSend(std::shared_ptr<TcpSocket> soc)
 
 void MainSystem::SendUpdate()
 {
-	while (m_isSThreadRunning)
+	while (m_isSendRunning)
 	{
 		// Listen 소켓 제외 모든 소켓의 큐에있는 데이터 전송
 		for (int i = 1; i < m_socketList.size(); i++)
 		{
-			if (INVALID_SOCKET != m_socketList[i].get()->GetSocHandle() && false == m_socketList[i]->SendUpdate())
+			if (INVALID_SOCKET != m_socketList[i]->GetSocHandle() && false == m_socketList[i]->SendUpdate())
 			{
 				m_systemMessage.push((std::to_string(i)) + "번째 Socket->SendUpdate 실패");
 				OnNetClose(m_socketList[i], i);
 			}
 		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
 

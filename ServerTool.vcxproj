@@ -192,6 +192,8 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="PlayerInfo.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="RoomInfo.h" />
+    <ClInclude Include="RoomManager.h" />
     <ClInclude Include="ServerTool.h" />
     <ClInclude Include="ServerToolDlg.h" />
     <ClInclude Include="StreamQueue.h" />
@@ -211,6 +213,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RoomManager.cpp" />
     <ClCompile Include="ServerTool.cpp" />
     <ClCompile Include="ServerToolDlg.cpp" />
     <ClCompile Include="StreamQueue.cpp" />

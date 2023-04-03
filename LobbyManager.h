@@ -1,4 +1,6 @@
 #pragma once
+
+#include "PacketAnalyzer.h"
 #include "PlayerInfo.h"
 
 class LobbyManager
@@ -17,10 +19,27 @@ public:
 	}
 
 public:
+	void Init();
+	void Finalize();
 	void Update();
-	void PlayerLogIn(int netId, std::string id);
-	void PlayerLogOut(int netId);
-	//std::vector<std::shared_ptr<PlayerInfo>> m_playerList;
+	void NewPlayer(int netId, std::wstring id, myNet::LoginData& modelData);
+	void PlayerInLobby(int netId, std::shared_ptr<PlayerInfo> player);
+	std::shared_ptr<PlayerInfo> PlayerOutLobby(int netId);
 	std::map<int, std::shared_ptr<PlayerInfo>> m_playerList;
+
+	void PlayerModelSetting(int netId, myNet::LoginData& modelData);
+
+	void NewRoomAnnounce(bool isPrivate, int roomNum, std::wstring roomName);
+
+	void PlayerLogout(int netId);
+
+private:
+	std::list<int> m_logoutId;
+	//void LobbyUserListSend();
+
+private:
+	//std::thread m_lobbyThread;
+	//float m_delay;
+	//clock_t m_timer;
 };
 
